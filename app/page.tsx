@@ -349,7 +349,7 @@ export default function Home() {
       controlX,
       controlY,
       progress: -delayProgress, // Negative progress creates delay
-      speed: 0.005 + Math.random() * 0.006,
+      speed: 0.005 + Math.random() * 0.005,
       color,
       trail: [],
       graphics,
