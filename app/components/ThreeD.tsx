@@ -400,7 +400,7 @@ export default function ThreeD() {
       <div className="max-w-7xl mx-auto flex flex-col items-center gap-8">
 
         {/* Flex container for Text - Globe - Text */}
-        <div className="w-full flex items-center justify-center gap-2 md:gap-8 lg:gap-12 relative h-[300px] sm:h-[400px]">
+        <div className="w-full flex items-center justify-center  relative h-[300px] sm:h-[400px]">
 
           {/* TAXA - Left Side */}
           <div className="flex-1 flex justify-end">
