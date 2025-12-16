@@ -1,279 +1,219 @@
 "use client";
 
-import { Canvas, useFrame } from "@react-three/fiber";
-import { Stars } from "@react-three/drei";
-import { useMemo, useRef } from "react";
-import * as THREE from "three";
+import * as THREE from 'three'
+import React, { Suspense, useRef, useState, useEffect } from 'react'
+import { Canvas, useFrame } from '@react-three/fiber'
+import { EffectComposer, DepthOfField } from '@react-three/postprocessing'
+interface GalaxyProps {
+  dof: React.RefObject<any>;
+}
 
-export type PointerVector = { x: number; y: number };
+function Galaxy({ dof }: GalaxyProps) {
+  const parameters = {
+    count: 100000,
+    size: 0.005,
+    radius: 5,
+    branches: 8,
+    spin: 1.25,
+    randomness: 1,
+    randomnessPower: 10,
+    insideColor: '#ff6030',
+    outsideColor: '#1b3984',
+    animate: true,
+    mouse: true,
+    opacity: 1,
+    focusDistance: 0.05,
+    focalLength: 0.05,
+    width: 480,
+    height: 480,
+    focusX: 0,
+    focusY: 0,
+    focusZ: 0,
+  }
+  const particles = useRef<THREE.Points>(null)
+  //const [movement] = useState(() => new THREE.Vector3())
+  const [temp] = useState(() => new THREE.Vector3())
+  const [focus] = useState(() => new THREE.Vector3())
 
-const sunVertex = `
-    varying vec3 vPosition;
-    varying vec2 vUv;
-    uniform float uTime;
-
-    void main() {
-        vPosition = position;
-        vUv = uv;
-        vec3 transformed = position + normal * sin((uv.y + uTime) * 12.0) * 0.08;
-        transformed += normal * cos((uv.x - uTime * 0.6) * 10.0) * 0.05;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(transformed, 1.0);
+  useEffect(() => {
+    if (particles.current) {
+      generateGalaxy()
     }
-`;
+  }, [])
 
-const sunFragment = `
-    varying vec3 vPosition;
-    varying vec2 vUv;
-    uniform float uTime;
-
-    float hash(vec2 p) {
-        p = fract(p * vec2(123.34, 345.45));
-        p += dot(p, p + 34.345);
-        return fract(p.x * p.y);
-    }
-
-    float noise(vec2 p){
-        vec2 i = floor(p);
-        vec2 f = fract(p);
-        float a = hash(i);
-        float b = hash(i + vec2(1.0, 0.0));
-        float c = hash(i + vec2(0.0, 1.0));
-        float d = hash(i + vec2(1.0, 1.0));
-        vec2 u = f * f * (3.0 - 2.0 * f);
-        return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
-    }
-
-    float fbm(vec2 p) {
-        float value = 0.0;
-        float amplitude = 0.5;
-        mat2 rot = mat2(1.6, -1.2, 1.2, 1.6);
-        for (int i = 0; i < 5; i++) {
-            value += noise(p) * amplitude;
-            p = rot * p * 1.4;
-            amplitude *= 0.55;
-        }
-        return value;
+  useFrame((state, delta) => {
+    //dof.current.target = focus.lerp(particles.current.position, 0.05)
+    //movement.lerp(temp.set(state.mouse.x, state.mouse.y * 0.2, 0), 0.2)
+    if (dof.current) {
+      dof.current.circleOfConfusionMaterial.uniforms.focusDistance.value = parameters.focusDistance
+      dof.current.circleOfConfusionMaterial.uniforms.focalLength.value = parameters.focalLength
+      dof.current.resolution.height = parameters.height
+      dof.current.resolution.width = parameters.width
+      dof.current.target = new THREE.Vector3(parameters.focusX, parameters.focusY, parameters.focusZ)
+      dof.current.blendMode.opacity.value = parameters.opacity
     }
 
-    void main() {
-        vec2 uv = vUv * 4.0;
-        float turbulence = fbm(uv + uTime * 0.2);
-        float glow = smoothstep(1.5, 0.0, length(vPosition));
+    if (particles.current) {
+      if (parameters.mouse) {
+        //particles.current.position.x = THREE.MathUtils.lerp(particles.current.position.x, state.mouse.x * 20, 0.2)
+        particles.current.rotation.x = THREE.MathUtils.lerp(particles.current.rotation.x, state.mouse.y / 10, 0.2)
+        particles.current.rotation.y = THREE.MathUtils.lerp(particles.current.rotation.y, -state.mouse.x / 2, 0.2)
+      }
 
-        vec3 core = vec3(1.0, 0.76, 0.2);
-        vec3 corona = vec3(1.0, 0.55, 0.15) * (glow * 1.4);
-        vec3 color = core + corona + turbulence * vec3(0.15, 0.08, 0.02);
-
-        gl_FragColor = vec4(color, 1.0);
+      // TODO use delta instead
+      if (parameters.animate) {
+        const elapsedTime = state.clock.getElapsedTime()
+        particles.current.rotation.y = 0.05 * elapsedTime
+      }
     }
-`;
+  })
 
-const Sun = () => {
-    const materialRef = useRef<THREE.ShaderMaterial>(null);
+  const generateGalaxy = () => {
+    if (!particles.current) return;
+    
+    const positions = new Float32Array(parameters.count * 3)
+    const colors = new Float32Array(parameters.count * 3)
+    //const colorInside = new THREE.Color(parameters.insideColor)
+    //const colorOutside = new THREE.Color(parameters.outsideColor)
+    const colorInside = new THREE.Color(1.0, 0.3765, 0.1882)
+    const colorOutside = new THREE.Color(0.10588, 0.22353, 0.51765)
 
-    useFrame((_, delta) => {
-        if (materialRef.current) {
-            materialRef.current.uniforms.uTime.value += delta;
-        }
-    });
+    for (let i = 0; i < parameters.count; i++) {
+      const i3 = i * 3
 
-    return (
-        <group position={[-1.5, 0.2, -6]}>
-            <mesh>
-                <sphereGeometry args={[2.5, 96, 96]} />
-                <shaderMaterial
-                    ref={materialRef}
-                    fragmentShader={sunFragment}
-                    vertexShader={sunVertex}
-                    uniforms={{
-                        uTime: { value: 0 },
-                    }}
-                />
-            </mesh>
-            <mesh>
-                <sphereGeometry args={[2.9, 64, 64]} />
-                <meshBasicMaterial
-                    color="#ffcb6b"
-                    transparent
-                    opacity={0.32}
-                    side={THREE.BackSide}
-                />
-            </mesh>
-        </group>
-    );
-};
+      const radius = Math.random() * parameters.radius
+      const spinAngle = radius * parameters.spin
+      const branchAngle = ((i % parameters.branches) / parameters.branches) * Math.PI * 2
 
-const createNebulaTexture = () => {
-    if (typeof window === "undefined") return null;
-    const canvas = document.createElement("canvas");
-    canvas.width = 1024;
-    canvas.height = 512;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
+      const randomX = Math.pow(Math.random(), parameters.randomnessPower) * (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius
+      const randomY = Math.pow(Math.random(), parameters.randomnessPower) * (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius
+      const randomZ = Math.pow(Math.random(), parameters.randomnessPower) * (Math.random() < 0.5 ? 1 : -1) * parameters.randomness * radius
 
-    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    gradient.addColorStop(0, "#050510");
-    gradient.addColorStop(0.3, "#1b0d1c");
-    gradient.addColorStop(0.5, "#612512");
-    gradient.addColorStop(0.7, "#a3480b");
-    gradient.addColorStop(1, "#08060f");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+      positions[i3] = Math.cos(branchAngle + spinAngle) * radius + randomX
+      positions[i3 + 1] = randomY
+      positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * radius + randomZ
 
-    const stars = 600;
-    for (let i = 0; i < stars; i++) {
-        const x = Math.random() * canvas.width;
-        const y = Math.random() * canvas.height;
-        const radius = Math.random() * 1.4 + 0.3;
-        const opacity = Math.random() * 0.5 + 0.1;
-        ctx.fillStyle = `rgba(255,255,255,${opacity})`;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
+      const mixedColor = colorInside.clone()
+      mixedColor.lerp(colorOutside, radius / parameters.radius)
+
+      colors[i3] = mixedColor.r
+      colors[i3 + 1] = mixedColor.g
+      colors[i3 + 2] = mixedColor.b
     }
 
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.ClampToEdgeWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
-    texture.anisotropy = 16;
-    return texture;
-};
+    particles.current.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    particles.current.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+  }
 
-const NebulaPlane = () => {
-    const texture = useMemo(() => createNebulaTexture(), []);
-    return (
-        <mesh position={[0, 0, -12]} scale={[30, 20, 1]}>
-            <planeGeometry args={[1, 1, 1, 1]} />
-            <meshBasicMaterial
-                map={texture ?? undefined}
-                color="#26100f"
-                side={THREE.DoubleSide}
-            />
-        </mesh>
-    );
-};
+  return (
+    <points ref={particles}>
+      <bufferGeometry />
+      <pointsMaterial size={parameters.size} sizeAttenuation={true} depthWrite={true} vertexColors={true} blending={THREE.AdditiveBlending} />
+    </points>
+  )
+}
 
-const AsteroidBelt = () => {
-    const positions = useMemo(() => {
-        const count = 600;
-        const arr = new Float32Array(count * 3);
-        for (let i = 0; i < count; i++) {
-            const radius = 3.2 + Math.random() * 1.8;
-            const angle = Math.random() * Math.PI * 2;
-            arr[i * 3] = Math.cos(angle) * radius - 1.5;
-            arr[i * 3 + 1] = (Math.random() - 0.5) * 0.4;
-            arr[i * 3 + 2] = Math.sin(angle) * radius - 6;
-        }
-        return arr;
-    }, []);
+interface KnotProps {
+  position: [number, number, number];
+}
 
-    return (
-        <points>
-            <bufferGeometry>
-                <bufferAttribute
-                    attach="attributes-position"
-                    args={[positions, 3]}
-                />
-            </bufferGeometry>
-            <pointsMaterial
-                color="#ffd79c"
-                size={0.035}
-                sizeAttenuation
-                transparent
-                opacity={0.8}
-            />
-        </points>
-    );
-};
+function Knot(props: KnotProps) {
+  const knotRef = useRef<THREE.Mesh>(null)
 
-const Planet = ({
-    radius,
-    offset,
-    size,
-    color,
-}: {
-    radius: number;
-    offset: number;
-    size: number;
-    color: string;
-}) => {
-    const meshRef = useRef<THREE.Mesh>(null);
-    const angleRef = useRef(offset);
+  useFrame(({ clock }) => {
+    //knotRef.current.rotation.y += -0.01
+    //knotRef.current.position.z = Math.sin(clock.getElapsedTime()) * 10 - 10;
+  })
 
-    useFrame((_, delta) => {
-        if (!meshRef.current) return;
-        angleRef.current += delta * 0.2;
-        const x = Math.cos(angleRef.current) * radius + 0.6;
-        const z = Math.sin(angleRef.current) * radius - 8;
-        meshRef.current.position.set(x, -0.1, z);
-    });
+  return (
+    <mesh ref={knotRef} position={props.position}>
+      <torusKnotGeometry args={[1, 0.25, 256, 32]} />
+      <meshLambertMaterial color={'#8888FF'} />
+    </mesh>
+  )
+}
 
-    return (
-        <mesh ref={meshRef}>
-            <sphereGeometry args={[size, 64, 64]} />
-            <meshStandardMaterial
-                color={color}
-                metalness={0.25}
-                roughness={0.45}
-            />
-        </mesh>
-    );
-};
+//function BlackHoleNucleus({ size }) {
+//  const meshRef = useRef();
+//
+//  return (
+//    <mesh ref={meshRef} scale={[size, size, size]} position={[0, 0, 0]}>
+//      <sphereBufferGeometry
+//        attach="geometry"
+//        args={[0.5, 32, 32, 0, 6.4, 0, 6.3]}
+//      />
+//      <meshBasicMaterial attach="material" color="#000" />
+//    </mesh>
+//  );
+//}
 
-const SceneRig = ({ pointer }: { pointer: PointerVector }) => {
-    const groupRef = useRef<THREE.Group>(null);
+interface NucleusProps {
+  size: number;
+}
 
-    useFrame(() => {
-        if (!groupRef.current) return;
-        groupRef.current.rotation.y = THREE.MathUtils.lerp(
-            groupRef.current.rotation.y,
-            pointer.x * 0.3,
-            0.05
-        );
-        groupRef.current.rotation.x = THREE.MathUtils.lerp(
-            groupRef.current.rotation.x,
-            -pointer.y * 0.15,
-            0.05
-        );
-    });
+function Nucleus({ size }: NucleusProps) {
+  const nucleusRef = useRef<THREE.Mesh>(null)
+  const color = new THREE.Color()
+  color.setHSL(Math.random(), 0.7, Math.random() * 0.2 + 0.05)
 
-    return (
-        <group ref={groupRef}>
-            <Sun />
-            <Planet radius={5.5} size={0.35} color="#ffe1b0" offset={0.2} />
-            <Planet radius={7.2} size={0.65} color="#8c8c8c" offset={1.7} />
-            <Planet radius={9.2} size={1.15} color="#5c5c5c" offset={2.5} />
-            <AsteroidBelt />
-        </group>
-    );
-};
+  return (
+    <mesh ref={nucleusRef} position={[0, 0, 0]} scale={[size, size, size]}>
+      <sphereGeometry args={[0.5, 32, 32, 0, 6.4, 0, 6.3]} />
+      <meshBasicMaterial color={'#fff'} />
+    </mesh>
+  )
 
-export function GalaxyCanvas({ pointer }: { pointer: PointerVector }) {
-    return (
-        <div className="pointer-events-none absolute inset-0 z-0">
-            <Canvas
-                camera={{ position: [0, 0, 6], fov: 40 }}
-                gl={{ antialias: true }}
-                dpr={[1, 2]}
-            >
-                <color attach="background" args={["#05020f"]} />
-                <ambientLight intensity={0.25} />
-                <pointLight position={[-2, 0.5, -4]} intensity={2.6} color="#ffb960" />
-                <pointLight position={[5, -3, 2]} intensity={0.5} color="#ff9fb3" />
+  //const geometry = new THREE.IcosahedronGeometry( 1, 15 );
 
-                <NebulaPlane />
-                <SceneRig pointer={pointer} />
+  //		for ( let i = 0; i < 50; i ++ ) {
 
-                <Stars
-                    radius={180}
-                    depth={120}
-                    count={4000}
-                    factor={4}
-                    saturation={0}
-                    fade
-                    speed={0.2}
-                />
-            </Canvas>
-        </div>
-    );
+  //			const color = new THREE.Color();
+  //			color.setHSL( Math.random(), 0.7, Math.random() * 0.2 + 0.05 );
+
+  //			const material = new THREE.MeshBasicMaterial( { color: color } );
+  //			const sphere = new THREE.Mesh( geometry, material );
+  //			sphere.position.normalize().multiplyScalar( Math.random() * 4.0 + 2.0 );
+  //			sphere.scale.setScalar( Math.random() * Math.random() + 0.5 );
+  //			scene.add( sphere );
+
+  //			if ( Math.random() < 0.25 ) sphere.layers.enable( BLOOM_SCENE );
+
+  //    }
+}
+
+const Effects = React.forwardRef<any, any>((props, ref) => {
+  const bokehScale = 1;
+  return (
+    <EffectComposer multisampling={0}>
+      <DepthOfField ref={ref} bokehScale={bokehScale} />
+    </EffectComposer>
+  )
+})
+
+export function GalaxyCanvas() {
+  const dof = useRef<any>(null)
+  //return (
+  //  <Canvas linear flat colorManagement={false} style={{ height: `100vh` }} camera={{ position: [0, 2, 5] }}>
+  //    <pointLight position={[15, 15, 15]} intensity={1} />
+  //    <Suspense fallback={null}>
+  //      <Galaxy dof={dof} />
+  //      <Knot position={[0, 0, 0]} />
+  //    </Suspense>
+  //    <Effects ref={dof} />
+  //    <axesHelper args={[2, 2, 2]} />
+  //  </Canvas>
+  //)
+
+  // TODO do real color management
+  return (
+    <div className="absolute inset-0 z-[1] w-full h-full pointer-events-none">
+      <Canvas linear flat camera={{ position: [0, 0.5, 5] }} gl={{ alpha: true }}>
+        <Suspense fallback={null}>
+          <Galaxy dof={dof} />
+          <Nucleus size={0.125} />
+        </Suspense>
+        <Effects ref={dof} />
+      </Canvas>
+    </div>
+  )
 }
