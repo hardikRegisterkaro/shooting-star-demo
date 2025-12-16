@@ -146,22 +146,26 @@ const flattenCoordinates = (coordinates: any): number[][] => {
 const computeFeatureCentroid = (feature: CountryFeature): LatLng | undefined => {
     const geometry = feature.geometry;
     if (!geometry) return undefined;
-    const points = flattenCoordinates(geometry.coordinates).filter(
-        (coord) => coord.length >= 2
-    );
-    if (!points.length) return undefined;
-    const sums = points.reduce(
-        (acc, coord) => {
-            acc.lng += coord[0];
-            acc.lat += coord[1];
-            return acc;
-        },
-        { lat: 0, lng: 0 }
-    );
-    return {
-        lat: sums.lat / points.length,
-        lng: sums.lng / points.length,
-    };
+    // Type guard to check if geometry has coordinates
+    if ('coordinates' in geometry) {
+        const points = flattenCoordinates((geometry as any).coordinates).filter(
+            (coord) => coord.length >= 2
+        );
+        if (!points.length) return undefined;
+        const sums = points.reduce(
+            (acc, coord) => {
+                acc.lng += coord[0];
+                acc.lat += coord[1];
+                return acc;
+            },
+            { lat: 0, lng: 0 }
+        );
+        return {
+            lat: sums.lat / points.length,
+            lng: sums.lng / points.length,
+        };
+    }
+    return undefined;
 };
 
 const pseudoRandomFromString = (value: string) => {
@@ -315,7 +319,7 @@ export function World({ globeConfig, data, onGlobeReady }: WorldProps) {
     );
 
     const polygonColor = useCallback(
-        (feature: FeatureWithMeta) => {
+        (feature: any) => {
             const meta = feature.properties?.__meta;
             const intensity = getLightIntensity(meta);
             const terrain = getTerrainProfile(meta);
@@ -352,7 +356,7 @@ export function World({ globeConfig, data, onGlobeReady }: WorldProps) {
     );
 
     const polygonAltitude = useCallback(
-        (feature: FeatureWithMeta) => {
+        (feature: any) => {
             const meta = feature.properties?.__meta;
             const terrain = getTerrainProfile(meta);
             const base = mergedConfig.landAltitude ?? 0.015;
@@ -524,8 +528,8 @@ export function World({ globeConfig, data, onGlobeReady }: WorldProps) {
                 hexPolygonsData={landFeatures}
                 hexPolygonMargin={0}
                 hexPolygonResolution={4}
-                hexPolygonColor={polygonColor}
-                hexPolygonAltitude={polygonAltitude}
+                hexPolygonColor={polygonColor as any}
+                hexPolygonAltitude={polygonAltitude as any}
                 arcsData={data}
                 arcColor={(d: any) => d.color}
                 arcDashLength={mergedConfig.arcLength}
