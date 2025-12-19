@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { Poppins } from "next/font/google";
 import "../../components/css/blog-content.css";
 import { parseBlogContent } from '@/utils/parseBlogContent';
-import BlogContentSections from "@/app/components/blog/BlogContentSection";
-import BlogFaq from "@/app/components/blog/BlogFaq";
+import BlogContentWithTOC from "@/app/components/blog/BlogContentWithTOC";
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -183,13 +182,13 @@ export default async function BlogPostPage({
 
   return (
     <div className="relative">
-      <article className="min-h-screen max-w-4xl mt-15 mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header Section */}
+      <article className="min-h-screen max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Header Section - Full Width */}
         <header className="mb-8">
           {/* Categories */}
           {post.category && post.category.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-4">
-              {post.category.map((cat) => (
+              {post.category.reverse().map((cat) => (
                 <span
                   key={cat.id}
                   className={`px-3 py-1 rounded-full bg-[#FEE39A]/20 text-[#FEE39A] text-sm ${poppins.className}`}
@@ -231,32 +230,15 @@ export default async function BlogPostPage({
               />
             </div>
           )}
-
         </header>
 
-        {/* Content Section */}
-        <BlogContentSections sections={contentSections} />
-
-        {/* Additional Fields */}
-        {post.additionalFields && Object.keys(post.additionalFields).length > 0 && (
-          <div className="mt-12 space-y-8">
-            {Object.entries(post.additionalFields).map(([key, field]) => (
-              <div key={key} className="border-t border-white/10 pt-8" data-field-key={key}>
-                {field.label && (
-                  <h2 className={`text-2xl font-bold text-white mb-4 ${poppins.className}`}>
-                    {field.label}
-                  </h2>
-                )}
-                {field.value && additionalFieldSections[key] && (
-                  <BlogContentSections sections={additionalFieldSections[key]} />
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* FAQ Section */}
-        <BlogFaq faqItems={post.faq_items || []} />
+        {/* Content with TOC - 2 Column Layout */}
+        <BlogContentWithTOC
+          contentSections={contentSections}
+          additionalFields={post.additionalFields}
+          additionalFieldSections={additionalFieldSections}
+          faqItems={post.faq_items || []}
+        />
       </article>
     </div>
   );

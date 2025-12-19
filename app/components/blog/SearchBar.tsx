@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Search, X, Loader2, ExternalLink, ArrowRight } from 'lucide-react';
 import { Poppins } from 'next/font/google';
+import Link from 'next/link';
 
 const poppins = Poppins({
     subsets: ['latin'],
@@ -254,13 +255,13 @@ export default function SearchBar({ onSearchResults, onSearchError, onCategoryCl
                         </>
                     ) : categories.length > 0 ? (
                         categories.map((category) => (
-                            <button
+                            <Link
                                 key={category.id}
-                                onClick={() => onCategoryClick && onCategoryClick(category)}
+                                href={`/blog/category/${category.slug}`}
                                 className={`px-4 py-2 text-xs rounded-full bg-gray-800/50 border border-white/10 text-gray-300 hover:bg-gray-700/50 hover:text-white hover:border-white/20 transition-all cursor-pointer flex-shrink-0 ${poppins.className}`}
                             >
                                 {category.name}
-                            </button>
+                            </Link>
                         ))
                     ) : null}
                 </div>

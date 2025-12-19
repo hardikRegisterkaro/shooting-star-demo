@@ -22,7 +22,8 @@ export default function BlogContentSections({ sections }: BlogContentSectionsPro
           {section.title && (
             <h2
               id={section.id}
-              className="text-2xl font-bold text-white mb-4 scroll-mt-24"
+              className="text-2xl font-bold text-white mb-4"
+              style={{ scrollMarginTop: '120px' }}
             >
               {section.title}
             </h2>
