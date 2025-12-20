@@ -145,7 +145,7 @@ export default function OurServices() {
               width: isMounted ? `${cards.length * 500}px` : `${cards.length * 400}px`,
               willChange: 'transform'
             }}
-          >
+        >
             {cards.map((card) => (
               <div
                 key={card.id}
@@ -156,7 +156,7 @@ export default function OurServices() {
                 }`}
                 onMouseEnter={() => setHoveredCard(card.id)}
                 onMouseLeave={() => setHoveredCard(null)}
-              >
+            >
                 {/* Placeholder color background */}
                 <div className={`absolute inset-0 ${card.placeholderColor}`}></div>
                 
@@ -237,15 +237,15 @@ export default function OurServices() {
                   {/* Title */}
                   <h3 className={`text-xl font-bold ${poppins.className}`}>
                     {card.title}
-                  </h3>
+                </h3>
 
-                  {/* More Details Button */}
+                {/* More Details Button */}
                   <Link href={card.href}>
-                    <button className={`w-fit py-3 px-6 bg-amber-200 rounded-lg hover:scale-105 transition-all duration-300 ${poppins.className}`}>
-                      <span className="text-black text-base font-medium">
-                        More details
-                      </span>
-                    </button>
+                <button className={`w-fit py-3 px-6 bg-amber-200 rounded-lg hover:scale-105 transition-all duration-300 ${poppins.className}`}>
+                  <span className="text-black text-base font-medium">
+                    More details
+                  </span>
+                </button>
                   </Link>
                 </div>
               </div>
